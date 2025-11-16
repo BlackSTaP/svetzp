@@ -142,10 +142,10 @@
        background-color: rgba(110,231,183,0.05);
     }
 
-    /* Ячейка данных "Света нет" (адаптирована) */
+    /* Ячейка данных "Света нет" (УЛУЧШЕНО) */
     .data-cell.off {
-      background-color: rgba(255,255,255,0.1);
-      color: #cbd5e1; /* tailwind: text-slate-300 */
+      background-color: rgba(251, 113, 133, 0.1); /* --danger с альфа-каналом */
+      color: var(--danger);
     }
     
     /* Ячейка данных "Свет есть" (адаптирована) */
@@ -160,6 +160,26 @@
       padding: 10px;
       border-radius: 8px;
       margin-top: 12px;
+    }
+    
+    /* (НОВЫЙ) Стили для блока статистики */
+    #viz-summary {
+      background: var(--glass-2);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 14px;
+      margin-top: 12px;
+    }
+    #viz-summary.hidden { display: none; }
+    #viz-summary strong { color: var(--accent); }
+    #viz-summary ul { margin: 8px 0 0 0; padding-left: 20px; list-style-type: '— '; }
+    #viz-summary li { margin-bottom: 4px; padding-left: 4px; }
+    #viz-summary p.grand-total {
+      margin-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 8px;
+      font-size: 15px;
     }
     
   </style>
@@ -238,11 +258,14 @@
       <div class="card">
         <div class="cols">
           <!-- Левая колонка: Ввод данных -->
-          <div> <!-- УБРАНЫ КЛАССЫ 'flex flex-col' -->
+          <div> 
             <label class="muted">Данные для графика:</label>
-            <textarea id="dataInputViz" rows="20" placeholder="Вставьте данные, например:
-1.1: 00:00 – 00:30, 03:00 – 06:30..."><!-- По умолчанию вставим данные для примера -->
-
+            <textarea id="dataInputViz" rows="16" placeholder="Вставьте данные, например:
+1.1: 00:00 – 00:30, 03:00 – 06:30..."><!-- По умолчанию вставим данные для примера -->1.1: 00:00-01:30, 04:00-05:00, 10:00-11:00
+1.2: 00:10-00:20, 04:00-06:00, 10:00-11:00, 23:00-24:00
+2.1: 01:00-02:30, 07:00-08:00, 13:00-14:00
+2.2: 01:00-03:00, 07:00-08:00, 13:00-14:00, 19:00-20:00
+3: 00:00-02:00, 02:00-04:00, 12:00-16:00
 </textarea>
             <div class="controls">
               <button id="generateVizBtn" class="primary">Построить график</button>
@@ -250,11 +273,13 @@
             </div>
             <!-- Место для вывода ошибок -->
             <div id="viz-error-message" class="hidden"></div>
+            <!-- (НОВЫЙ) Место для вывода статистики -->
+            <div id="viz-summary" class="hidden"></div>
           </div>
 
           <!-- Правая колонка: График -->
-          <div> <!-- УБРАНЫ КЛАССЫ 'flex flex-col' -->
-              <label class="muted" style="margin-bottom: 8px;">Результат:</label> <!-- УБРАН 'mb-2' И ДОБАВЛЕН inline-style -->
+          <div>
+              <label class="muted" style="margin-bottom: 8px;">Результат:</label>
               <div class="chart-wrapper">
                 <div id="chartContainerViz">
                   <p class="empty">Нажмите "Построить график", чтобы отобразить данные.</p>
@@ -271,27 +296,29 @@
     // ===================================
     // ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК
     // ===================================
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
+    (function() {
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      const tabContents = document.querySelectorAll('.tab-content');
 
-    tabButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        // Убираем active со всех кнопок
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        // Добавляем active нажатой
-        button.classList.add('active');
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          // Убираем active со всех кнопок
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          // Добавляем active нажатой
+          button.classList.add('active');
 
-        // Скрываем весь контент
-        tabContents.forEach(content => content.classList.add('hidden'));
-        
-        // Показываем нужный
-        const tabId = button.dataset.tab;
-        const activeContent = document.getElementById(tabId);
-        if (activeContent) {
-          activeContent.classList.remove('hidden');
-        }
+          // Скрываем весь контент
+          tabContents.forEach(content => content.classList.add('hidden'));
+          
+          // Показываем нужный
+          const tabId = button.dataset.tab;
+          const activeContent = document.getElementById(tabId);
+          if (activeContent) {
+            activeContent.classList.remove('hidden');
+          }
+        });
       });
-    });
+    })(); // <-- Обернул в IIFE для изоляции
 
 
     // ===================================
@@ -420,10 +447,72 @@
       document.getElementById('copyJson').addEventListener('click', ()=>{
         const container = document.getElementById('result');
         const txt = container.dataset.summary || '{}';
-        navigator.clipboard.writeText(txt).then(()=>{
-          alert('JSON скопирован в буфер обмена');
-        }).catch(()=> alert('Не удалось скопировать'));
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(()=>{
+            // Используем кастомное уведомление вместо alert
+            showTempAlert('JSON скопирован в буфер обмена');
+          }).catch(()=> showTempAlert('Не удалось скопировать', true));
+        } else {
+            // Fallback для сред, где clipboard API не доступен (хотя вряд ли)
+            try {
+              const dummy = document.createElement("textarea");
+              document.body.appendChild(dummy);
+              dummy.value = txt;
+              dummy.select();
+              document.execCommand("copy");
+              document.body.removeChild(dummy);
+              showTempAlert('JSON скопирован в буфер обмена');
+            } catch (err) {
+              showTempAlert('Не удалось скопировать', true);
+            }
+        }
       });
+      
+      // (НОВАЯ) Функция для кастомного Alert
+      function showTempAlert(message, isError = false) {
+          let alertBox = document.querySelector('.temp-alert');
+          if (!alertBox) {
+              alertBox = document.createElement('div');
+              alertBox.className = 'temp-alert';
+              document.body.appendChild(alertBox);
+              const style = document.createElement('style');
+              style.textContent = `
+                  .temp-alert {
+                      position: fixed;
+                      top: 20px;
+                      left: 50%;
+                      transform: translateX(-50%);
+                      padding: 12px 20px;
+                      border-radius: 8px;
+                      background: var(--accent);
+                      color: #04201a;
+                      font-weight: 600;
+                      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                      opacity: 0;
+                      transition: opacity 0.3s, top 0.3s;
+                      z-index: 9999;
+                  }
+                  .temp-alert.show {
+                      opacity: 1;
+                      top: 30px;
+                  }
+                  .temp-alert.error {
+                      background: var(--danger);
+                      color: #fff;
+                  }
+              `;
+              document.head.appendChild(style);
+          }
+          
+          alertBox.textContent = message;
+          alertBox.classList.toggle('error', isError);
+          alertBox.classList.add('show');
+          
+          setTimeout(() => {
+              alertBox.classList.remove('show');
+          }, 2000);
+      }
+
 
       document.getElementById('download').addEventListener('click', ()=>{
         const container = document.getElementById('result');
@@ -440,41 +529,101 @@
 
 
     // ===================================
-    // ЛОГИКА ВИЗУАЛИЗАТОРА (из schedule-visualizer.html)
+    // ЛОГИКА ВИЗУАЛИЗАТОРА (ОБНОВЛЕНО)
     // ===================================
     (function() {
-      // Получаем ссылки на DOM-элементы (с новыми ID)
+      // Получаем ссылки на DOM-элементы
       const generateBtn = document.getElementById('generateVizBtn');
       const downloadBtn = document.getElementById('downloadVizBtn');
       const textInput = document.getElementById('dataInputViz');
       const chartContainer = document.getElementById('chartContainerViz');
       const errorContainer = document.getElementById('viz-error-message');
+      const summaryContainer = document.getElementById('viz-summary'); // (НОВЫЙ)
 
       // Иконка "нет питания"
       const iconOff = `
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 1rem; height: 1rem;">
           <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
         </svg>`;
+        
+      function escapeHtml(s){ return s.replace(/[&<>\"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+      /**
+       * (НОВЫЙ) Сливает пересекающиеся интервалы.
+       * @param {Array<Object>} ranges - Массив объектов {start, end}
+       * @returns {Array<Object>} - Массив слитых интервалов
+       */
+      function mergeIntervals(ranges) {
+        if (ranges.length === 0) return [];
+        // Сортируем по времени начала
+        const sortedRanges = [...ranges].sort((a, b) => a.start - b.start);
+        
+        const merged = [];
+        // Берем копию, чтобы не мутировать оригинальные данные
+        let current = { ...sortedRanges[0] }; 
+
+        for (let i = 1; i < sortedRanges.length; i++) {
+          const next = sortedRanges[i];
+          if (next.start <= current.end) {
+            // Интервалы пересекаются или касаются, сливаем
+            current.end = Math.max(current.end, next.end);
+          } else {
+            // Интервалы не пересекаются, пушим текущий и начинаем новый
+            merged.push(current);
+            current = { ...next }; // Берем копию
+          }
+        }
+        // Пушим последний обработанный интервал
+        merged.push(current);
+        return merged;
+      }
+
+      /**
+       * (НОВЫЙ) Считает общую длительность по слитым интервалам.
+       * @param {Array<Object>} mergedRanges - Массив слитых интервалов
+       * @returns {number} - Общая длительность в минутах
+       */
+      function calculateTotalDuration(mergedRanges) {
+        return mergedRanges.reduce((acc, range) => acc + (range.end - range.start), 0);
+      }
+
+      /**
+       * (НОВЫЙ) Форматирует минуты в "Ч ч М мин".
+       */
+      function formatMinutes(minutes) {
+        if (minutes === 0) return '0 мин';
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        let parts = [];
+        if (h > 0) parts.push(`${h} ч`);
+        if (m > 0) parts.push(`${m} мин`);
+        return parts.join(' ');
+      }
 
       /**
        * Парсит время из строки "ЧЧ:ММ" в минуты.
        */
       function parseTime(timeStr) {
+        // "24:00" равно 1440 минутам (конец дня)
         if (timeStr === '24:00') {
           return 24 * 60;
         }
         const [hours, minutes] = timeStr.split(':').map(Number);
+        if (isNaN(hours) || isNaN(minutes)) {
+            throw new Error(`Неверный формат времени: ${timeStr}`);
+        }
         return (hours * 60) + minutes;
       }
 
       /**
        * Парсит весь текст из textarea в структурированные данные.
+       * (ОБНОВЛЕНО) Сразу считает статистику.
        */
       function parseInput(text) {
         const lines = text.trim().split('\n');
         const data = [];
         const lineRegex = /^([\d\.]+):\s*(.*)$/;
-        const rangeRegex = /(\d{2}:\d{2})\s*[-–—]\s*(\d{2}:\d{2})/g; // Поддерживаем разные тире
+        const rangeRegex = /(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/g; // Поддерживаем разные тире и 1-2 цифры в часах
 
         for (const line of lines) {
           if (line.trim() === '') continue;
@@ -486,27 +635,55 @@
 
           const group = lineMatch[1];
           const timesString = lineMatch[2];
-          const entry = { group, ranges: [] };
+          
+          const entry = { 
+            group: group, 
+            ranges: [], 
+            mergedRanges: [], 
+            totalMinutes: 0 
+          };
 
           let rangeMatch;
           while ((rangeMatch = rangeRegex.exec(timesString)) !== null) {
+            const startStr = pad(rangeMatch[1]);
+            const endStr = pad(rangeMatch[2]);
             entry.ranges.push({
-              start: parseTime(rangeMatch[1]),
-              end: parseTime(rangeMatch[2])
+              start: parseTime(startStr),
+              end: parseTime(endStr)
             });
           }
+          
+          // (НОВОЕ) Сразу считаем статистику для этой группы
+          entry.mergedRanges = mergeIntervals(entry.ranges);
+          entry.totalMinutes = calculateTotalDuration(entry.mergedRanges);
+          
           data.push(entry);
         }
         return data;
       }
+      
+      /**
+       * (НОВЫЙ) Дополняет время до ЧЧ:ММ (например, 1:30 -> 01:30)
+       */
+      function pad(t){
+        const [h,m] = t.split(':');
+        const hh = h.padStart(2,'0');
+        return hh + ':' + m;
+      }
 
       /**
-       * Проверяет, выключен ли свет в данную минуту.
+       * (НОВЫЙ / КЛЮЧЕВОЕ ИЗМЕНЕНИЕ)
+       * Проверяет, пересекается ли 30-минутный слот с какими-либо интервалами отключений.
+       * @param {number} cellStart - Начало слота (в минутах)
+       * @param {number} cellEnd - Конец слота (в минутах)
+       * @param {Array<Object>} ranges - Массив интервалов {start, end}
        */
-      function isPowerOffAt(minute, ranges) {
+      function isIntervalOff(cellStart, cellEnd, ranges) {
         for (const range of ranges) {
-          if (minute >= range.start && minute < range.end) {
-            return true;
+          // Стандартная проверка на пересечение двух интервалов:
+          // (StartA < EndB) и (EndA > StartB)
+          if (cellStart < range.end && cellEnd > range.start) {
+            return true; // Найдено пересечение
           }
         }
         return false;
@@ -529,6 +706,7 @@
 
       /**
        * Главная функция отрисовки графика (CSS Grid).
+       * (ОБНОВЛЕНО) Использует новую логику isIntervalOff
        */
       function drawChart(data) {
         // 1. Очищаем контейнер
@@ -565,9 +743,12 @@
           for (let i = 0; i < 48; i++) {
             const dataCell = document.createElement('div');
             
-            // Проверяем по средней точке 30-минутного интервала
-            const midpointMinutes = (i * 30) + 15;
-            const isOff = isPowerOffAt(midpointMinutes, entry.ranges);
+            // (ОБНОВЛЕНО) Проверяем, пересекает ли наш 30-минутный слот (cell)
+            // какой-либо из слитых интервалов отключения (mergedRanges).
+            const cellStart = i * 30;
+            const cellEnd = (i + 1) * 30;
+            // Используем entry.mergedRanges для более быстрой проверки
+            const isOff = isIntervalOff(cellStart, cellEnd, entry.mergedRanges); 
 
             dataCell.className = `grid-cell data-cell ${isOff ? 'off' : 'on'}`;
             if (isOff) {
@@ -583,23 +764,44 @@
 
       /**
        * Запускает генерацию графика.
+       * (ОБНОВЛЕНО) Показывает статистику.
        */
       function generate() {
         hideVizError();
+        summaryContainer.classList.add('hidden'); // Скрываем старую статистику
+        
         try {
           const data = parseInput(textInput.value);
+          
           if (data.length === 0) {
             chartContainer.innerHTML = '<p class="empty">Не найдено данных для графика. Проверьте формат ввода.</p>';
             downloadBtn.disabled = true;
             return;
           }
+          
           drawChart(data);
+          
+          // (НОВОЕ) Показываем статистику
+          let grandTotalMinutes = 0;
+          let summaryHtml = '<strong>Общее время отсутствия:</strong><ul>';
+          for (const entry of data) {
+            grandTotalMinutes += entry.totalMinutes;
+            summaryHtml += `<li>${escapeHtml(entry.group)}: <strong>${formatMinutes(entry.totalMinutes)}</strong></li>`;
+          }
+          summaryHtml += '</ul>';
+          summaryHtml += `<p class="grand-total">Всего (уникально по группам): <strong>${formatMinutes(grandTotalMinutes)}</strong></p>`;
+          
+          summaryContainer.innerHTML = summaryHtml;
+          summaryContainer.classList.remove('hidden');
+
           // Показываем кнопку скачивания
           downloadBtn.disabled = false;
+          
         } catch (error) {
           console.error("Ошибка при генерации графика:", error);
           showVizError(`Произошла ошибка: ${error.message}`);
           downloadBtn.disabled = true;
+          summaryContainer.classList.add('hidden');
         }
       }
 
@@ -647,4 +849,3 @@
   </script>
 </body>
 </html>
-
