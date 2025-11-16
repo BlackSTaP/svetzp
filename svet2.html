@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Менеджер графиков света</title>
+  <!-- Подключаем html2canvas для функции "Скачать PNG" (для Визуализатора) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" xintegrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfVsNqKCHqWcVv1UUD5eayMsKbKrNYMscUTDCVpLTllOg3EGQ0I+mKSRdG2BTlg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  
+  <style>
+    /* --- СТИЛИ ИЗ SVET.HTML (БАЗА) --- */
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#6ee7b7; --danger:#fb7185; --glass: rgba(255,255,255,0.03);
+      --glass-2: rgba(255,255,255,0.02);
+    }
+    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:linear-gradient(180deg,#071022 0%, #07102a 100%); color:#e6eef6; scroll-behavior: smooth;}
+    .wrap{max-width:980px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    h1{margin:0;font-size:18px}
+    .card{background:linear-gradient(180deg,var(--glass),var(--glass-2));border-radius:12px;padding:14px;box-shadow:0 6px 24px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.04)}
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    textarea{width:100%;min-height:220px;padding:12px;border-radius:8px;background:transparent;border:1px dashed rgba(255,255,255,0.06);color:inherit;font-family:monospace;resize:vertical; transition: border 0.2s;}
+    textarea:focus { border-style: solid; border-color: var(--accent); outline: none; }
+    .controls{display:flex;gap:8px;align-items:center;margin-top:10px}
+    button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:inherit;cursor:pointer; transition: background 0.2s, color 0.2s;}
+    button:hover { background: rgba(255,255,255,0.05); }
+    button.primary{background:linear-gradient(90deg,var(--accent),#5eead4);color:#04201a;border:none; font-weight: 600;}
+    button.primary:hover { background:linear-gradient(90deg,#84f5c5,#6ef0de); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .muted{color:var(--muted);font-size:13px}
+    .result{margin-top:16px}
+    .row{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:rgba(0,0,0,0.12);margin-bottom:8px}
+    .key{font-weight:600}
+    .summary{font-size:14px}
+    .chip{padding:4px 8px;border-radius:999px;font-size:13px}
+    .added{background:rgba(110,231,183,0.12);color:var(--accent)}
+    .removed{background:rgba(251,113,133,0.07);color:var(--danger)}
+    details{margin-top:6px}
+    details summary{cursor:pointer; color: var(--muted); font-size: 14px;}
+    small{color:var(--muted)}
+    .toolbar{display:flex;gap:8px;align-items:center;margin-top:12px}
+    .right{display:flex;gap:8px;align-items:center}
+    .legend{display:flex;gap:8px;align-items:center;margin-left:8px}
+    .empty{opacity:0.7;padding:18px;border-radius:8px;border:1px dashed rgba(255,255,255,0.04);text-align:center}
+    .footer{margin-top:18px;color:var(--muted);font-size:13px}
+    @media (max-width:880px){.cols{grid-template-columns:1fr}}
+
+    /* --- НОВЫЕ СТИЛИ ДЛЯ ВКЛАДОК И ВИЗУАЛИЗАТОРА --- */
+    
+    /* Контейнер вкладок */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .tab-btn {
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0.6;
+      border-bottom: 2px solid transparent;
+      border-radius: 6px 6px 0 0;
+    }
+    .tab-btn.active {
+      color: var(--accent);
+      background: var(--glass);
+      opacity: 1;
+      border-bottom-color: var(--accent);
+    }
+    
+    /* Скрываем неактивные вкладки */
+    .tab-content.hidden {
+      display: none;
+    }
+
+    /* Обертка для таблицы-графика, чтобы она скроллилась */
+    .chart-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 12px;
+      background: var(--glass-2);
+    }
+    
+    /* Стили для сгенерированного графика (адаптированные под темную тему) */
+    #chart-grid {
+      display: grid;
+      /* Первая колонка (метки) - 6rem (96px)
+        Остальные 48 колонок (24ч * 2) - по 1.75rem (28px) минимум
+      */
+      grid-template-columns: 6rem repeat(48, minmax(1.75rem, 1fr));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      background-color: transparent;
+      min-width: 100rem; /* Чтобы график не сжимался */
+    }
+
+    /* Стили для ячеек */
+    .grid-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.75rem; /* 12px */
+      line-height: 1rem;
+      min-height: 2.5rem; /* 40px */
+      text-align: center;
+      color: var(--muted);
+    }
+    
+    /* Убираем лишние рамки у последних ячеек */
+    .grid-cell:nth-child(49n) {
+       border-right: none;
+    }
+    #chart-grid > .grid-cell:nth-last-child(-n+49) {
+       border-bottom: none;
+    }
+
+    /* Ячейка-заголовок (часы) */
+    .header-cell {
+      background-color: rgba(110,231,183,0.05);
+      color: var(--accent);
+      font-weight: 600;
+      grid-column: span 2 / span 2;
+    }
+
+    /* Ячейка-метка (группа) */
+    .label-cell {
+      background-color: rgba(110,231,183,0.05);
+      color: var(--accent);
+      font-weight: 600;
+      justify-content: flex-end;
+      padding-right: 0.5rem;
+      text-align: right;
+    }
+
+    /* Пустой угол */
+    .corner-cell {
+       background-color: rgba(110,231,183,0.05);
+    }
+
+    /* Ячейка данных "Света нет" (адаптирована) */
+    .data-cell.off {
+      background-color: rgba(255,255,255,0.1);
+      color: #cbd5e1; /* tailwind: text-slate-300 */
+    }
+    
+    /* Ячейка данных "Свет есть" (адаптирована) */
+    .data-cell.on {
+       background-color: transparent;
+    }
+
+    /* Сообщение об ошибке для визуализатора */
+    #viz-error-message {
+      color: var(--danger);
+      background: rgba(251,113,133,0.07);
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+    
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <!-- Иконка из svet.html, но заменена на более подходящую -->
+      <div class="card" style="padding:10px 12px;display:flex;align-items:center;gap:12px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 7V13H16" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        
+        <div>
+          <h1>Менеджер графиков света</h1>
+          <div class="muted">Сравнение и визуализация графиков отключений</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ВКЛАДКИ -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="comparator-view">Сравнение</button>
+      <button class="tab-btn" data-tab="visualizer-view">Визуализатор</button>
+    </div>
+
+    <!-- #################################### -->
+    <!-- #      ВКЛАДКА 1: КОМПАРАТОР       # -->
+    <!-- #################################### -->
+    <div id="comparator-view" class="tab-content">
+      <div class="card">
+        <div class="cols">
+          <div>
+            <label class="muted">Старый график</label>
+            <textarea id="old" placeholder="Например:
+1.1: 00:00 - 00:30, 03:00 - 06:30"></textarea>
+          </div>
+          <div>
+            <label class="muted">Новый график</label>
+            <textarea id="new" placeholder="Вставь обновленный график тут"></textarea>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="compare" class="primary">Сравнить</button>
+          <button id="clear">Очистить</button>
+          <div style="flex:1"></div>
+          <label class="muted" style="display:flex; align-items:center; gap: 4px; user-select: none;">
+            <input type="checkbox" id="onlyChanges"> 
+            <span>Показать только изменения</span>
+          </label>
+        </div>
+
+        <div class="toolbar">
+          <div class="legend">
+            <span class="chip added">+ Добавлено</span>
+            <span class="chip removed">- Убрано</span>
+          </div>
+          <div style="flex:1"></div>
+          <div class="right">
+            <button id="copyJson">Скопировать JSON</button>
+            <button id="download">Скачать JSON</button>
+          </div>
+        </div>
+
+        <div class="result" id="result"></div>
+        <div class="footer">Совет: можно вставлять «–» или «-» в качестве разделителя времени. Пустые строки игнорируются.</div>
+      </div>
+    </div>
+    
+    <!-- #################################### -->
+    <!-- #     ВКЛАДКА 2: ВИЗУАЛИЗАТОР      # -->
+    <!-- #################################### -->
+    <div id="visualizer-view" class="tab-content hidden">
+      <div class="card">
+        <div class="cols">
+          <!-- Левая колонка: Ввод данных -->
+          <div> <!-- УБРАНЫ КЛАССЫ 'flex flex-col' -->
+            <label class="muted">Данные для графика:</label>
+            <textarea id="dataInputViz" rows="20" placeholder="Вставьте данные, например:
+1.1: 00:00 – 00:30, 03:00 – 06:30..."><!-- По умолчанию вставим данные для примера -->
+1.1: 00:00 – 00:30, 03:00 – 06:30, 10:00 – 13:30, 17:00 – 20:30
+1.2: 03:00 – 06:30, 10:00 – 13:30, 17:00 – 19:30
+2.1: 00:00 – 03:00, 06:30 – 13:30, 20:30 – 24:00
+2.2: 00:00 – 03:00, 10:00 – 13:30, 17:00 – 24:00
+3.1: 06:30 – 10:00, 13:30 – 20:30
+3.2: 00:00 – 02:30, 06:30 – 10:00, 13:30 – 20:30
+4.1: 06:30 – 10:00, 17:00 – 24:00
+4.2: 06:30 – 10:00, 15:30 – 20:30
+5.1: 00:00 – 03:00, 13:30 – 17:00, 20:30 – 24:00
+5.2: 00:00 – 03:00, 13:30 – 17:00, 20:30 – 24:00
+6.1: 03:00 – 06:30, 13:30 – 17:00, 20:30 – 24:00
+6.2: 03:00 – 06:30, 10:00 – 17:00
+</textarea>
+            <div class="controls">
+              <button id="generateVizBtn" class="primary">Построить график</button>
+              <button id="downloadVizBtn" disabled>Скачать PNG</button>
+            </div>
+            <!-- Место для вывода ошибок -->
+            <div id="viz-error-message" class="hidden"></div>
+          </div>
+
+          <!-- Правая колонка: График -->
+          <div> <!-- УБРАНЫ КЛАССЫ 'flex flex-col' -->
+              <label class="muted" style="margin-bottom: 8px;">Результат:</label> <!-- УБРАН 'mb-2' И ДОБАВЛЕН inline-style -->
+              <div class="chart-wrapper">
+                <div id="chartContainerViz">
+                  <p class="empty">Нажмите "Построить график", чтобы отобразить данные.</p>
+                </div>
+              </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div> <!-- .wrap -->
+
+  <script>
+    // ===================================
+    // ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК
+    // ===================================
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        // Убираем active со всех кнопок
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        // Добавляем active нажатой
+        button.classList.add('active');
+
+        // Скрываем весь контент
+        tabContents.forEach(content => content.classList.add('hidden'));
+        
+        // Показываем нужный
+        const tabId = button.dataset.tab;
+        const activeContent = document.getElementById(tabId);
+        if (activeContent) {
+          activeContent.classList.remove('hidden');
+        }
+      });
+    });
+
+
+    // ===================================
+    // ЛОГИКА КОМПАРАТОРА (из svet.html)
+    // ===================================
+    (function() {
+      // Нормализация времени, парсинг и сравнение
+      function parseBlock(text){
+        const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+        const data = {};
+        const timeRe = /(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/g;
+
+        for(const line of lines){
+          if(!line.includes(':')) continue;
+          const parts = line.split(':');
+          const key = parts.shift().trim();
+          const rest = parts.join(':').trim();
+          const matches = [];
+          let m;
+          while((m = timeRe.exec(rest)) !== null){
+            matches.push([pad(m[1]), pad(m[2])]);
+          }
+          data[key] = normalizeIntervals(matches);
+        }
+        return data;
+      }
+
+      function pad(t){
+        // ensures HH:MM two-digit hours
+        const [h,m] = t.split(':');
+        const hh = h.padStart(2,'0');
+        return hh + ':' + m;
+      }
+
+      function normalizeIntervals(arr){
+        // convert to consistent string and sort by start time
+        const mapped = arr.map(a=>({s:a[0], e:a[1], str: a[0]+"-"+a[1]}));
+        mapped.sort((x,y)=> timeToMinutes(x.s) - timeToMinutes(y.s) || timeToMinutes(x.e)-timeToMinutes(y.e));
+        // merge exact duplicates
+        const uniq = [];
+        for(const it of mapped){
+          if(!uniq.length || uniq[uniq.length-1].str !== it.str) uniq.push(it);
+        }
+        return uniq.map(x=>x.str);
+      }
+
+      function timeToMinutes(t){
+        const [h,m] = t.split(':').map(Number);
+        return h*60 + m;
+      }
+
+      function compareSets(oldArr, newArr){
+        const oldSet = new Set(oldArr);
+        const newSet = new Set(newArr);
+        const removed = [...oldSet].filter(x=>!newSet.has(x));
+        const added = [...newSet].filter(x=>!oldSet.has(x));
+        // sort by time
+        removed.sort((a,b)=> timeToMinutes(a.split('-')[0]) - timeToMinutes(b.split('-')[0]));
+        added.sort((a,b)=> timeToMinutes(a.split('-')[0]) - timeToMinutes(b.split('-')[0]));
+        return {removed, added};
+      }
+
+      function render(data){
+        const container = document.getElementById('result');
+        container.innerHTML = '';
+        const only = document.getElementById('onlyChanges').checked;
+        const keys = Array.from(new Set(Object.keys(data.old).concat(Object.keys(data.new)))).sort();
+        if(!keys.length){
+          container.innerHTML = '<div class="empty">Нет данных — вставь старый и новый графики и нажми «Сравнить»</div>';
+          return;
+        }
+
+        const summaryJson = {};
+
+        for(const key of keys){
+          const oldArr = data.old[key] || [];
+          const newArr = data.new[key] || [];
+          const diff = compareSets(oldArr, newArr);
+          summaryJson[key] = {old: oldArr, new: newArr, removed: diff.removed, added: diff.added};
+          if(only && diff.removed.length===0 && diff.added.length===0) continue;
+
+          const row = document.createElement('div'); row.className='row';
+          const left = document.createElement('div');
+          left.innerHTML = '<div class="key">'+escapeHtml(key)+'</div>' + '<div class="muted" style="font-size:13px">'+(newArr.length?('Интервалов: '+newArr.length):'Интервалов: 0')+'</div>';
+          const right = document.createElement('div'); right.style.textAlign='right';
+
+          const parts = [];
+          if(diff.removed.length) parts.push('<span class="chip removed">- '+diff.removed.join(', ')+'</span>');
+          if(diff.added.length) parts.push('<span class="chip added">+ '+diff.added.join(', ')+'</span>');
+          const summary = document.createElement('div'); summary.className='summary'; summary.innerHTML = parts.join(' ');
+
+          right.appendChild(summary);
+          row.appendChild(left); row.appendChild(right);
+          container.appendChild(row);
+
+          // details
+          const det = document.createElement('details');
+          const sum = document.createElement('summary'); sum.textContent = 'Подробнее';
+          det.appendChild(sum);
+          const pre = document.createElement('pre'); pre.style.margin='8px 0 0 0'; pre.style.whiteSpace='pre-wrap'; pre.style.fontFamily='monospace';
+          pre.textContent = 'Старое: ' + (oldArr.length?oldArr.join(', '):'—') + '\nНовое:  ' + (newArr.length?newArr.join(', '):'—') + '\n\nУбрано: ' + (diff.removed.length?diff.removed.join(', '):'—') + '\nДобавлено: ' + (diff.added.length?diff.added.join(', '):'—');
+          det.appendChild(pre);
+          container.appendChild(det);
+        }
+
+        // attach summary JSON for copy / download
+        container.dataset.summary = JSON.stringify(summaryJson, null, 2);
+      }
+
+      function escapeHtml(s){ return s.replace(/[&<>\"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+      document.getElementById('compare').addEventListener('click', ()=>{
+        const oldText = document.getElementById('old').value;
+        const newText = document.getElementById('new').value;
+        const parsedOld = parseBlock(oldText);
+        const parsedNew = parseBlock(newText);
+        render({old: parsedOld, new: parsedNew});
+      });
+
+      document.getElementById('clear').addEventListener('click', ()=>{
+        document.getElementById('old').value = '';
+        document.getElementById('new').value = '';
+        document.getElementById('result').innerHTML = '';
+      });
+
+      document.getElementById('copyJson').addEventListener('click', ()=>{
+        const container = document.getElementById('result');
+        const txt = container.dataset.summary || '{}';
+        navigator.clipboard.writeText(txt).then(()=>{
+          alert('JSON скопирован в буфер обмена');
+        }).catch(()=> alert('Не удалось скопировать'));
+      });
+
+      document.getElementById('download').addEventListener('click', ()=>{
+        const container = document.getElementById('result');
+        const txt = container.dataset.summary || '{}';
+        const blob = new Blob([txt], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'compare_summary.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      });
+      
+      // Инициализируем пустой результат при загрузке
+      document.getElementById('result').innerHTML = '<div class="empty">Нет данных — вставь старый и новый графики и нажми «Сравнить»</div>';
+
+    })();
+
+
+    // ===================================
+    // ЛОГИКА ВИЗУАЛИЗАТОРА (из schedule-visualizer.html)
+    // ===================================
+    (function() {
+      // Получаем ссылки на DOM-элементы (с новыми ID)
+      const generateBtn = document.getElementById('generateVizBtn');
+      const downloadBtn = document.getElementById('downloadVizBtn');
+      const textInput = document.getElementById('dataInputViz');
+      const chartContainer = document.getElementById('chartContainerViz');
+      const errorContainer = document.getElementById('viz-error-message');
+
+      // Иконка "нет питания"
+      const iconOff = `
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+        </svg>`;
+
+      /**
+       * Парсит время из строки "ЧЧ:ММ" в минуты.
+       */
+      function parseTime(timeStr) {
+        if (timeStr === '24:00') {
+          return 24 * 60;
+        }
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return (hours * 60) + minutes;
+      }
+
+      /**
+       * Парсит весь текст из textarea в структурированные данные.
+       */
+      function parseInput(text) {
+        const lines = text.trim().split('\n');
+        const data = [];
+        const lineRegex = /^([\d\.]+):\s*(.*)$/;
+        const rangeRegex = /(\d{2}:\d{2})\s*[-–—]\s*(\d{2}:\d{2})/g; // Поддерживаем разные тире
+
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          const lineMatch = line.match(lineRegex);
+          if (!lineMatch) {
+            console.warn(`Неверный формат строки, пропускаем: ${line}`);
+            continue;
+          }
+
+          const group = lineMatch[1];
+          const timesString = lineMatch[2];
+          const entry = { group, ranges: [] };
+
+          let rangeMatch;
+          while ((rangeMatch = rangeRegex.exec(timesString)) !== null) {
+            entry.ranges.push({
+              start: parseTime(rangeMatch[1]),
+              end: parseTime(rangeMatch[2])
+            });
+          }
+          data.push(entry);
+        }
+        return data;
+      }
+
+      /**
+       * Проверяет, выключен ли свет в данную минуту.
+       */
+      function isPowerOffAt(minute, ranges) {
+        for (const range of ranges) {
+          if (minute >= range.start && minute < range.end) {
+            return true;
+          }
+        }
+        return false;
+      }
+      
+      /**
+       * Показывает сообщение об ошибке
+       */
+      function showVizError(message) {
+        errorContainer.textContent = message;
+        errorContainer.classList.remove('hidden');
+      }
+      
+      /**
+       * Скрывает сообщение об ошибке
+       */
+      function hideVizError() {
+        errorContainer.classList.add('hidden');
+      }
+
+      /**
+       * Главная функция отрисовки графика (CSS Grid).
+       */
+      function drawChart(data) {
+        // 1. Очищаем контейнер
+        chartContainer.innerHTML = '';
+        
+        // 2. Создаем сам grid-контейнер
+        const grid = document.createElement('div');
+        grid.id = 'chart-grid';
+
+        // 3. Создаем ячейки заголовка (часы)
+        
+        // 3.1. Пустой угловой элемент
+        const cornerCell = document.createElement('div');
+        cornerCell.className = 'grid-cell corner-cell';
+        grid.appendChild(cornerCell);
+
+        // 3.2. Ячейки с часами (00...23)
+        for (let hour = 0; hour < 24; hour++) {
+          const headerCell = document.createElement('div');
+          headerCell.className = 'grid-cell header-cell';
+          headerCell.textContent = hour.toString().padStart(2, '0') + ':00';
+          grid.appendChild(headerCell);
+        }
+
+        // 4. Создаем строки данных
+        data.forEach((entry, index) => {
+          // 4.1. Ячейка-метка (1.1, 1.2...)
+          const labelCell = document.createElement('div');
+          labelCell.className = 'grid-cell label-cell';
+          labelCell.textContent = entry.group;
+          grid.appendChild(labelCell);
+
+          // 4.2. Ячейки данных (48 штук по 30 минут)
+          for (let i = 0; i < 48; i++) {
+            const dataCell = document.createElement('div');
+            
+            // Проверяем по средней точке 30-минутного интервала
+            const midpointMinutes = (i * 30) + 15;
+            const isOff = isPowerOffAt(midpointMinutes, entry.ranges);
+
+            dataCell.className = `grid-cell data-cell ${isOff ? 'off' : 'on'}`;
+            if (isOff) {
+              dataCell.innerHTML = iconOff;
+            }
+            grid.appendChild(dataCell);
+          }
+        });
+        
+        // 5. Добавляем готовую сетку в контейнер
+        chartContainer.appendChild(grid);
+      }
+
+      /**
+       * Запускает генерацию графика.
+       */
+      function generate() {
+        hideVizError();
+        try {
+          const data = parseInput(textInput.value);
+          if (data.length === 0) {
+            chartContainer.innerHTML = '<p class="empty">Не найдено данных для графика. Проверьте формат ввода.</p>';
+            downloadBtn.disabled = true;
+            return;
+          }
+          drawChart(data);
+          // Показываем кнопку скачивания
+          downloadBtn.disabled = false;
+        } catch (error) {
+          console.error("Ошибка при генерации графика:", error);
+          showVizError(`Произошла ошибка: ${error.message}`);
+          downloadBtn.disabled = true;
+        }
+      }
+
+      /**
+       * Запускает скачивание графика в PNG, используя html2canvas.
+       */
+      function download() {
+        const gridElement = document.getElementById('chart-grid');
+        if (!gridElement) return;
+
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = 'Генерация...';
+
+        html2canvas(gridElement, {
+          backgroundColor: '#0b1220', // Фон карточки
+          useCORS: true,
+          scale: 2 // Увеличиваем масштаб для лучшего качества
+        }).then(canvas => {
+          const dataUrl = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = 'schedule-chart.png';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }).catch(err => {
+          console.error("Ошибка при скачивании PNG:", err);
+          showVizError("Не удалось скачать изображение.");
+        }).finally(() => {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = 'Скачать PNG';
+        });
+      }
+
+      // --- НАЗНАЧЕНИЕ СОБЫТИЙ ---
+      generateBtn.addEventListener('click', generate);
+      downloadBtn.addEventListener('click', download);
+
+      // --- ПЕРВЫЙ ЗАПУСК ---
+      // Сразу генерируем график при загрузке страницы с данными из примера
+      generate();
+
+    })();
+
+  </script>
+</body>
+</html>
