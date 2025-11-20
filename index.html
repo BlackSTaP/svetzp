@@ -1,337 +1,457 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Менеджер графиков света</title>
-  <!-- Подключаем html2canvas для функции "Скачать PNG" (для Визуализатора) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" xintegrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfVsNqKCHqWcVv1UUD5eayMsKbKrNYMscUTDCVpLTllOg3EGQ0I+mKSRdG2BTlg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   
+  <!-- Materialize CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- HTML2Canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <style>
-    /* --- СТИЛИ ИЗ SVET.HTML (БАЗА) --- */
-    :root{
-      --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#6ee7b7; --danger:#fb7185; --glass: rgba(255,255,255,0.03);
-      --glass-2: rgba(255,255,255,0.02);
+    /* --- OVERRIDES FOR DARK THEME --- */
+    :root {
+      --bg: #0f1724;
+      --card-bg: #1e293b;
+      --text-main: #e6eef6;
+      --text-muted: #94a3b8;
+      --accent: #6ee7b7; /* Teal-ish green */
+      --accent-dark: #059669;
+      --danger: #fb7185;
+      --border: rgba(255,255,255,0.1);
     }
-    html,body{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:linear-gradient(180deg,#071022 0%, #07102a 100%); color:#e6eef6; scroll-behavior: smooth;}
-    .wrap{max-width:980px;margin:28px auto;padding:20px}
-    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
-    h1{margin:0;font-size:18px}
-    .card{background:linear-gradient(180deg,var(--glass),var(--glass-2));border-radius:12px;padding:14px;box-shadow:0 6px 24px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.04)}
-    .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    textarea{width:100%;min-height:220px;padding:12px;border-radius:8px;background:transparent;border:1px dashed rgba(255,255,255,0.06);color:inherit;font-family:monospace;resize:vertical; transition: border 0.2s;}
-    textarea:focus { border-style: solid; border-color: var(--accent); outline: none; }
-    .controls{display:flex;gap:8px;align-items:center;margin-top:10px}
-    button{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:8px;color:inherit;cursor:pointer; transition: background 0.2s, color 0.2s;}
-    button:hover { background: rgba(255,255,255,0.05); }
-    button.primary{background:linear-gradient(90deg,var(--accent),#5eead4);color:#04201a;border:none; font-weight: 600;}
-    button.primary:hover { background:linear-gradient(90deg,#84f5c5,#6ef0de); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .muted{color:var(--muted);font-size:13px}
-    .result{margin-top:16px}
-    .row{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:rgba(0,0,0,0.12);margin-bottom:8px}
-    .key{font-weight:600}
-    .summary{font-size:14px}
-    .chip{padding:4px 8px;border-radius:999px;font-size:13px}
-    .added{background:rgba(110,231,183,0.12);color:var(--accent)}
-    .removed{background:rgba(251,113,133,0.07);color:var(--danger)}
-    details{margin-top:6px}
-    details summary{cursor:pointer; color: var(--muted); font-size: 14px;}
-    small{color:var(--muted)}
-    .toolbar{display:flex;gap:8px;align-items:center;margin-top:12px}
-    .right{display:flex;gap:8px;align-items:center}
-    .legend{display:flex;gap:8px;align-items:center;margin-left:8px}
-    .empty{opacity:0.7;padding:18px;border-radius:8px;border:1px dashed rgba(255,255,255,0.04);text-align:center}
-    .footer{margin-top:18px;color:var(--muted);font-size:13px}
-    @media (max-width:880px){.cols{grid-template-columns:1fr}}
 
-    /* --- НОВЫЕ СТИЛИ ДЛЯ ВКЛАДОК И ВИЗУАЛИЗАТОРА --- */
-    
-    /* Контейнер вкладок */
-    .tabs {
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Navbar / Header styling */
+    nav {
+      background-color: transparent;
+      box-shadow: none;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    nav .brand-logo {
+      font-size: 1.5rem;
+      color: var(--text-main);
       display: flex;
-      gap: 4px;
-      margin-bottom: 12px;
-    }
-    .tab-btn {
-      padding: 10px 16px;
-      font-size: 14px;
-      font-weight: 600;
-      opacity: 0.6;
-      border-bottom: 2px solid transparent;
-      border-radius: 6px 6px 0 0;
-    }
-    .tab-btn.active {
-      color: var(--accent);
-      background: var(--glass);
-      opacity: 1;
-      border-bottom-color: var(--accent);
+      align-items: center;
+      gap: 10px;
     }
     
-    /* Скрываем неактивные вкладки */
-    .tab-content.hidden {
-      display: none;
+    /* Cards */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+    .card-content {
+      padding: 20px;
     }
 
-    /* Обертка для таблицы-графика, чтобы она скроллилась */
-    .chart-wrapper {
-      width: 100%;
-      overflow-x: auto;
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px;
-      padding: 12px;
-      background: var(--glass-2);
+    /* Inputs & Textareas (Dark Mode overrides) */
+    .input-field input[type=text], 
+    .input-field textarea.materialize-textarea {
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border);
     }
-    
-    /* Стили для сгенерированного графика (адаптированные под темную тему) */
+    .input-field input[type=text]:focus, 
+    .input-field textarea.materialize-textarea:focus {
+      border-bottom: 1px solid var(--accent);
+      box-shadow: 0 1px 0 0 var(--accent);
+    }
+    .input-field label {
+      color: var(--text-muted);
+    }
+    .input-field input[type=text]:focus + label, 
+    .input-field textarea.materialize-textarea:focus + label {
+      color: var(--accent);
+    }
+
+    /* Tabs */
+    .tabs {
+      background-color: transparent;
+      border-bottom: 1px solid var(--border);
+    }
+    .tabs .tab a {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .tabs .tab a:hover, .tabs .tab a.active {
+      color: var(--accent);
+      background-color: rgba(110, 231, 183, 0.05);
+    }
+    .tabs .indicator {
+      background-color: var(--accent);
+    }
+
+    /* Buttons */
+    .btn, .btn-large {
+      background-color: var(--accent);
+      color: #0f1724;
+      font-weight: 700;
+    }
+    .btn:hover, .btn-large:hover {
+      background-color: #34d399;
+    }
+    .btn-flat {
+      color: var(--text-main);
+    }
+    .btn:disabled {
+      background-color: #334155 !important;
+      color: #64748b !important;
+    }
+
+    /* Chips (Tags) */
+    .chip {
+      background-color: rgba(255,255,255,0.1);
+      color: var(--text-main);
+    }
+    .chip.added {
+      background-color: rgba(110, 231, 183, 0.15);
+      color: var(--accent);
+    }
+    .chip.removed {
+      background-color: rgba(251, 113, 133, 0.15);
+      color: var(--danger);
+    }
+
+    /* Result Row (Comparator) */
+    .diff-row {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      padding: 10px 15px;
+    }
+    .diff-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    details {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+    }
+    summary {
+      color: var(--text-muted);
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* --- MODAL STYLING (VISUALIZER) --- */
+    .modal {
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      max-height: 90%;
+      width: 95%; /* Wider modal for chart */
+      max-width: 1400px;
+      border-radius: 12px;
+    }
+    .modal .modal-footer {
+      background-color: #162032;
+      border-top: 1px solid var(--border);
+    }
+    /* Fix scrollbar in modal */
+    .modal-content {
+      padding: 24px;
+    }
+
+    /* --- CHART GRID STYLES --- */
+    .chart-scroll-wrapper {
+      overflow-x: auto;
+      padding-bottom: 10px;
+      /* Custom Scrollbar */
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent) var(--bg);
+    }
+    .chart-scroll-wrapper::-webkit-scrollbar {
+      height: 8px;
+    }
+    .chart-scroll-wrapper::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+    .chart-scroll-wrapper::-webkit-scrollbar-thumb {
+      background-color: var(--accent);
+      border-radius: 4px;
+    }
+
     #chart-grid {
       display: grid;
-      /* Первая колонка (метки) - 6rem (96px)
-        Остальные 48 колонок (24ч * 2) - по 1.75rem (28px) минимум
-      */
-      grid-template-columns: 6rem repeat(48, minmax(1.75rem, 1fr));
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 0.5rem;
-      overflow: hidden;
-      background-color: transparent;
-      min-width: 100rem; /* Чтобы график не сжимался */
+      /* 1st col (label): 180px, then 48 slots */
+      grid-template-columns: 180px repeat(48, minmax(20px, 1fr));
+      background-color: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      min-width: 1200px; /* Force scroll on mobile */
     }
 
-    /* Стили для ячеек */
     .grid-cell {
       display: flex;
       align-items: center;
       justify-content: center;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      border-right: 1px solid rgba(255,255,255,0.06);
-      font-size: 0.75rem; /* 12px */
-      line-height: 1rem;
-      min-height: 2.5rem; /* 40px */
-      text-align: center;
-      color: var(--muted);
-    }
-    
-    /* Убираем лишние рамки у последних ячеек */
-    .grid-cell:nth-child(49n) {
-       border-right: none;
-    }
-    #chart-grid > .grid-cell:nth-last-child(-n+49) {
-       border-bottom: none;
+      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      font-size: 12px;
+      height: 45px;
+      color: var(--text-muted);
+      position: relative;
     }
 
-    /* Ячейка-заголовок (часы) */
+    /* Header Cells (Time) */
     .header-cell {
       background-color: rgba(110,231,183,0.05);
       color: var(--accent);
-      font-weight: 600;
-      grid-column: span 2 / span 2;
+      font-weight: bold;
+      grid-column: span 2; /* 1 hour = 2 slots */
     }
 
-    /* Ячейка-метка (группа) */
+    /* Label Cells (Groups) */
     .label-cell {
       background-color: rgba(110,231,183,0.05);
-      color: var(--accent);
+      color: var(--text-main);
       font-weight: 600;
-      justify-content: flex-end;
-      padding-right: 0.5rem;
-      text-align: right;
+      justify-content: space-between; /* Space between name and time */
+      padding: 0 12px;
+      text-align: left;
+      border-right: 2px solid var(--accent); /* Separator */
+      white-space: nowrap;
+    }
+    .label-cell span.total-time {
+      font-size: 0.85em;
+      color: var(--accent);
+      opacity: 0.9;
+      margin-left: 8px;
     }
 
-    /* Пустой угол */
-    .corner-cell {
-       background-color: rgba(110,231,183,0.05);
-    }
-
-    /* Ячейка данных "Света нет" (УЛУЧШЕНО) */
+    /* Data Cells */
     .data-cell.off {
-      background-color: rgba(251, 113, 133, 0.1); /* --danger с альфа-каналом */
+      background-color: rgba(251, 113, 133, 0.15);
       color: var(--danger);
     }
+    /* Remove last borders */
+    .grid-cell:nth-child(49n+1) { border-right: none; } /* Logic adjusted for grid structure */
     
-    /* Ячейка данных "Свет есть" (адаптирована) */
-    .data-cell.on {
-       background-color: transparent;
+    /* FOOTER TOTAL ROW */
+    .grid-footer {
+      grid-column: 1 / -1; /* Span ALL columns */
+      background-color: rgba(255,255,255,0.03);
+      color: var(--text-main);
+      padding: 12px 20px;
+      font-weight: 600;
+      border-top: 2px solid var(--border);
+      text-align: right;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+    }
+    .grid-footer strong {
+      color: var(--accent);
+      font-size: 1.1em;
     }
 
-    /* Сообщение об ошибке для визуализатора */
-    #viz-error-message {
-      color: var(--danger);
-      background: rgba(251,113,133,0.07);
-      padding: 10px;
-      border-radius: 8px;
-      margin-top: 12px;
-    }
+    /* Utilities */
+    .hidden { display: none !important; }
+    .mt-2 { margin-top: 1rem; }
+    .mb-2 { margin-bottom: 1rem; }
     
-    /* (НОВЫЙ) Стили для блока статистики */
-    #viz-summary {
-      background: var(--glass-2);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px;
-      padding: 12px;
-      font-size: 14px;
-      margin-top: 12px;
-    }
-    #viz-summary.hidden { display: none; }
-    #viz-summary strong { color: var(--accent); }
-    #viz-summary ul { margin: 8px 0 0 0; padding-left: 20px; list-style-type: '— '; }
-    #viz-summary li { margin-bottom: 4px; padding-left: 4px; }
-    #viz-summary p.grand-total {
-      margin-top: 8px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      padding-top: 8px;
-      font-size: 15px;
-    }
-    
+    .helper-text { color: var(--text-muted); font-size: 0.9rem; margin-top: -10px; margin-bottom: 20px; display: block;}
+
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <!-- Иконка из svet.html, но заменена на более подходящую -->
-      <div class="card" style="padding:10px 12px;display:flex;align-items:center;gap:12px">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M12 7V13H16" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        
-        <div>
-          <h1>Менеджер графиков света</h1>
-          <div class="muted">Сравнение и визуализация графиков отключений</div>
-        </div>
-      </div>
-    </header>
 
-    <!-- ВКЛАДКИ -->
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="comparator-view">Сравнение</button>
-      <button class="tab-btn" data-tab="visualizer-view">Визуализатор</button>
-    </div>
-
-    <!-- #################################### -->
-    <!-- #      ВКЛАДКА 1: КОМПАРАТОР       # -->
-    <!-- #################################### -->
-    <div id="comparator-view" class="tab-content">
-      <div class="card">
-        <div class="cols">
-          <div>
-            <label class="muted">Старый график</label>
-            <textarea id="old" placeholder="Например:
-1.1: 00:00 - 00:30, 03:00 - 06:30"></textarea>
-          </div>
-          <div>
-            <label class="muted">Новый график</label>
-            <textarea id="new" placeholder="Вставь обновленный график тут"></textarea>
-          </div>
-        </div>
-
-        <div class="controls">
-          <button id="compare" class="primary">Сравнить</button>
-          <button id="clear">Очистить</button>
-          <div style="flex:1"></div>
-          <label class="muted" style="display:flex; align-items:center; gap: 4px; user-select: none;">
-            <input type="checkbox" id="onlyChanges"> 
-            <span>Показать только изменения</span>
-          </label>
-        </div>
-
-        <div class="toolbar">
-          <div class="legend">
-            <span class="chip added">+ Добавлено</span>
-            <span class="chip removed">- Убрано</span>
-          </div>
-          <div style="flex:1"></div>
-          <div class="right">
-            <button id="copyJson">Скопировать JSON</button>
-            <button id="download">Скачать JSON</button>
-          </div>
-        </div>
-
-        <div class="result" id="result"></div>
-        <div class="footer">Совет: можно вставлять «–» или «-» в качестве разделителя времени. Пустые строки игнорируются.</div>
-      </div>
-    </div>
+  <div class="container">
     
-    <!-- #################################### -->
-    <!-- #     ВКЛАДКА 2: ВИЗУАЛИЗАТОР      # -->
-    <!-- #################################### -->
-    <div id="visualizer-view" class="tab-content hidden">
+    <!-- HEADER -->
+    <nav>
+      <div class="nav-wrapper">
+        <a href="#" class="brand-logo">
+          <i class="material-icons" style="color: var(--accent)">bolt</i>
+          <span style="font-size: 1.2rem; font-weight: 600;">Графики Света</span>
+        </a>
+      </div>
+    </nav>
+
+    <!-- TABS -->
+    <div class="row">
+      <div class="col s12">
+        <ul class="tabs">
+          <li class="tab col s6"><a class="active" href="#comparator">Сравнение</a></li>
+          <li class="tab col s6"><a href="#visualizer">Визуализатор</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- VIEW 1: COMPARATOR -->
+    <div id="comparator" class="col s12">
       <div class="card">
-        <div class="cols">
-          <!-- Левая колонка: Ввод данных -->
-          <div> 
-            <label class="muted">Данные для графика:</label>
-            <textarea id="dataInputViz" rows="16" placeholder="Вставьте данные, например:
-1.1: 00:00 – 00:30, 03:00 – 06:30...">
-</textarea>
-            <div class="controls">
-              <button id="generateVizBtn" class="primary">Построить график</button>
-              <button id="downloadVizBtn" disabled>Скачать PNG</button>
+        <div class="card-content">
+          <div class="row">
+            <div class="input-field col s12 m6">
+              <textarea id="old" class="materialize-textarea" placeholder="1.1: 00:00-04:00"></textarea>
+              <label for="old">Старый график</label>
             </div>
-            <!-- Место для вывода ошибок -->
-            <div id="viz-error-message" class="hidden"></div>
-            <!-- (НОВЫЙ) Место для вывода статистики -->
-            <div id="viz-summary" class="hidden"></div>
+            <div class="input-field col s12 m6">
+              <textarea id="new" class="materialize-textarea" placeholder="1.1: 00:00-03:00"></textarea>
+              <label for="new">Новый график</label>
+            </div>
           </div>
 
-          <!-- Правая колонка: График -->
-          <div>
-              <label class="muted" style="margin-bottom: 8px;">Результат:</label>
-              <div class="chart-wrapper">
-                <div id="chartContainerViz">
-                  <p class="empty">Нажмите "Построить график", чтобы отобразить данные.</p>
-                </div>
-              </div>
+          <div class="row">
+            <div class="col s12">
+               <label>
+                <input type="checkbox" id="onlyChanges" />
+                <span style="color: var(--text-main)">Показать только изменения</span>
+              </label>
+            </div>
           </div>
+
+          <div class="row" style="margin-top: 20px;">
+            <div class="col s12">
+              <button id="compareBtn" class="btn waves-effect waves-light">Сравнить</button>
+              <button id="clearBtn" class="btn-flat waves-effect">Очистить</button>
+              
+              <div class="right hide-on-small-only">
+                 <button id="copyJsonBtn" class="btn-small btn-flat waves-effect"><i class="material-icons left">content_copy</i>JSON</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Results Area -->
+          <div id="resultArea" class="mt-2">
+            <!-- Dynamic content here -->
+            <div class="center-align" style="padding: 30px; opacity: 0.5">
+              <i class="material-icons" style="font-size: 3rem;">compare_arrows</i>
+              <p>Вставьте данные и нажмите "Сравнить"</p>
+            </div>
+          </div>
+          
         </div>
       </div>
     </div>
-    
-  </div> <!-- .wrap -->
 
+    <!-- VIEW 2: VISUALIZER -->
+    <div id="visualizer" class="col s12">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Генератор графика</span>
+          <span class="helper-text">Вставьте расписание (одна группа на строку), и мы построим красивый график. Данные сохраняются автоматически.</span>
+
+          <div class="input-field">
+            <textarea id="vizInput" class="materialize-textarea" style="min-height: 150px;" placeholder="1.1: 00:00 – 04:00, 09:00 – 13:00&#10;1.2: 02:00 – 06:00"></textarea>
+            <label for="vizInput">Данные графика</label>
+          </div>
+
+          <div class="row">
+            <div class="col s12">
+              <button id="generateVizBtn" class="btn btn-large waves-effect waves-light" style="width: 100%">
+                <i class="material-icons left">bar_chart</i>
+                Построить график
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- .container -->
+
+  <!-- MODAL: CHART RESULT -->
+  <div id="chartModal" class="modal bottom-sheet-on-mobile">
+    <div class="modal-content">
+      <h5 class="mb-2">Визуализация отключений</h5>
+      
+      <!-- Wrapper for horizontal scrolling -->
+      <div class="chart-scroll-wrapper" id="chartWrapper">
+        <div id="chart-grid">
+          <!-- Grid will be injected here -->
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span class="left hide-on-small-only" style="padding: 10px; color: var(--text-muted); font-size: 0.8rem;">
+        * Время указано в заголовках колонок
+      </span>
+      <a href="#!" class="modal-close btn-flat waves-effect">Закрыть</a>
+      <button id="downloadPngBtn" class="btn waves-effect waves-light">
+        <i class="material-icons left">download</i>Скачать
+      </button>
+    </div>
+  </div>
+
+  <!-- JS: Materialize + App Logic -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  
   <script>
-    // ===================================
-    // ЛОГИКА ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК
-    // ===================================
-    (function() {
-      const tabButtons = document.querySelectorAll('.tab-btn');
-      const tabContents = document.querySelectorAll('.tab-content');
+    document.addEventListener('DOMContentLoaded', function() {
+      // Init Materialize Components
+      M.AutoInit();
+      
+      // --- ЭЛЕМЕНТЫ ---
+      const compareBtn = document.getElementById('compareBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const copyJsonBtn = document.getElementById('copyJsonBtn');
+      const oldInput = document.getElementById('old');
+      const newInput = document.getElementById('new');
+      const resultArea = document.getElementById('resultArea');
+      const onlyChangesCheck = document.getElementById('onlyChanges');
 
-      tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-          // Убираем active со всех кнопок
-          tabButtons.forEach(btn => btn.classList.remove('active'));
-          // Добавляем active нажатой
-          button.classList.add('active');
+      const generateVizBtn = document.getElementById('generateVizBtn');
+      const vizInput = document.getElementById('vizInput');
+      const chartModalEl = document.getElementById('chartModal');
+      const chartGrid = document.getElementById('chart-grid');
+      const downloadPngBtn = document.getElementById('downloadPngBtn');
 
-          // Скрываем весь контент
-          tabContents.forEach(content => content.classList.add('hidden'));
-          
-          // Показываем нужный
-          const tabId = button.dataset.tab;
-          const activeContent = document.getElementById(tabId);
-          if (activeContent) {
-            activeContent.classList.remove('hidden');
-          }
-        });
-      });
-    })(); // <-- Обернул в IIFE для изоляции
+      // Инициализация модального окна
+      const chartModalInstance = M.Modal.getInstance(chartModalEl);
 
 
-    // ===================================
-    // ЛОГИКА КОМПАРАТОРА (из svet.html)
-    // ===================================
-    (function() {
-      // Нормализация времени, парсинг и сравнение
+      // --- ЛОКАЛЬНОЕ ХРАНИЛИЩЕ (Загрузка и сохранение) ---
+      function loadFromStorage() {
+        if (localStorage.getItem('svet_old')) oldInput.value = localStorage.getItem('svet_old');
+        if (localStorage.getItem('svet_new')) newInput.value = localStorage.getItem('svet_new');
+        if (localStorage.getItem('svet_viz')) vizInput.value = localStorage.getItem('svet_viz');
+        
+        // Обновляем текстовые поля Materialize (чтобы лейблы не наезжали)
+        M.updateTextFields();
+        M.textareaAutoResize(oldInput);
+        M.textareaAutoResize(newInput);
+        M.textareaAutoResize(vizInput);
+      }
+
+      // Вешаем слушатели на ввод для автосохранения
+      oldInput.addEventListener('input', () => localStorage.setItem('svet_old', oldInput.value));
+      newInput.addEventListener('input', () => localStorage.setItem('svet_new', newInput.value));
+      vizInput.addEventListener('input', () => localStorage.setItem('svet_viz', vizInput.value));
+      
+      // Загружаем данные при старте
+      loadFromStorage();
+
+
+      // --- ЛОГИКА КОМПАРАТОРА ---
       function parseBlock(text){
         const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
         const data = {};
         const timeRe = /(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/g;
-
         for(const line of lines){
           if(!line.includes(':')) continue;
-          const parts = line.split(':');
-          const key = parts.shift().trim();
-          const rest = parts.join(':').trim();
+          // Разделяем по первому двоеточию
+          const idx = line.indexOf(':');
+          const key = line.substring(0, idx).trim();
+          const rest = line.substring(idx+1).trim();
+          
           const matches = [];
           let m;
           while((m = timeRe.exec(rest)) !== null){
@@ -343,17 +463,14 @@
       }
 
       function pad(t){
-        // ensures HH:MM two-digit hours
         const [h,m] = t.split(':');
-        const hh = h.padStart(2,'0');
-        return hh + ':' + m;
+        return h.padStart(2,'0') + ':' + m;
       }
 
       function normalizeIntervals(arr){
-        // convert to consistent string and sort by start time
         const mapped = arr.map(a=>({s:a[0], e:a[1], str: a[0]+"-"+a[1]}));
-        mapped.sort((x,y)=> timeToMinutes(x.s) - timeToMinutes(y.s) || timeToMinutes(x.e)-timeToMinutes(y.e));
-        // merge exact duplicates
+        mapped.sort((x,y)=> timeToMin(x.s) - timeToMin(y.s));
+        // Уникальность
         const uniq = [];
         for(const it of mapped){
           if(!uniq.length || uniq[uniq.length-1].str !== it.str) uniq.push(it);
@@ -361,7 +478,7 @@
         return uniq.map(x=>x.str);
       }
 
-      function timeToMinutes(t){
+      function timeToMin(t){
         const [h,m] = t.split(':').map(Number);
         return h*60 + m;
       }
@@ -371,478 +488,240 @@
         const newSet = new Set(newArr);
         const removed = [...oldSet].filter(x=>!newSet.has(x));
         const added = [...newSet].filter(x=>!oldSet.has(x));
-        // sort by time
-        removed.sort((a,b)=> timeToMinutes(a.split('-')[0]) - timeToMinutes(b.split('-')[0]));
-        added.sort((a,b)=> timeToMinutes(a.split('-')[0]) - timeToMinutes(b.split('-')[0]));
+        // Сортировка
+        removed.sort((a,b)=> timeToMin(a.split('-')[0]) - timeToMin(b.split('-')[0]));
+        added.sort((a,b)=> timeToMin(a.split('-')[0]) - timeToMin(b.split('-')[0]));
         return {removed, added};
       }
 
-      function render(data){
-        const container = document.getElementById('result');
-        container.innerHTML = '';
-        const only = document.getElementById('onlyChanges').checked;
-        const keys = Array.from(new Set(Object.keys(data.old).concat(Object.keys(data.new)))).sort();
-        if(!keys.length){
-          container.innerHTML = '<div class="empty">Нет данных — вставь старый и новый графики и нажми «Сравнить»</div>';
-          return;
-        }
-
+      compareBtn.addEventListener('click', () => {
+        const dOld = parseBlock(oldInput.value);
+        const dNew = parseBlock(newInput.value);
+        const keys = Array.from(new Set([...Object.keys(dOld), ...Object.keys(dNew)])).sort();
+        
+        resultArea.innerHTML = '';
+        const onlyDiff = onlyChangesCheck.checked;
+        let hasContent = false;
+        
         const summaryJson = {};
 
-        for(const key of keys){
-          const oldArr = data.old[key] || [];
-          const newArr = data.new[key] || [];
-          const diff = compareSets(oldArr, newArr);
-          summaryJson[key] = {old: oldArr, new: newArr, removed: diff.removed, added: diff.added};
-          if(only && diff.removed.length===0 && diff.added.length===0) continue;
+        keys.forEach(key => {
+          const oldA = dOld[key] || [];
+          const newA = dNew[key] || [];
+          const diff = compareSets(oldA, newA);
+          summaryJson[key] = {old: oldA, new: newA, changes: diff};
 
-          const row = document.createElement('div'); row.className='row';
-          const left = document.createElement('div');
-          left.innerHTML = '<div class="key">'+escapeHtml(key)+'</div>' + '<div class="muted" style="font-size:13px">'+(newArr.length?('Интервалов: '+newArr.length):'Интервалов: 0')+'</div>';
-          const right = document.createElement('div'); right.style.textAlign='right';
+          if(onlyDiff && !diff.removed.length && !diff.added.length) return;
+          hasContent = true;
 
-          const parts = [];
-          if(diff.removed.length) parts.push('<span class="chip removed">- '+diff.removed.join(', ')+'</span>');
-          if(diff.added.length) parts.push('<span class="chip added">+ '+diff.added.join(', ')+'</span>');
-          const summary = document.createElement('div'); summary.className='summary'; summary.innerHTML = parts.join(' ');
+          const div = document.createElement('div');
+          div.className = 'diff-row';
+          
+          let html = `
+            <div class="diff-header">
+              <div>
+                <span style="font-weight:bold; font-size:1.1rem">${escapeHtml(key)}</span>
+                <span class="grey-text text-lighten-1" style="font-size:0.85rem; margin-left:10px">
+                   ${newA.length ? newA.length + ' интервалов' : 'Пусто'}
+                </span>
+              </div>
+              <div style="text-align:right">
+                ${diff.removed.map(r => `<span class="chip removed">-${r}</span>`).join('')}
+                ${diff.added.map(a => `<span class="chip added">+${a}</span>`).join('')}
+              </div>
+            </div>
+            <details>
+              <summary>Подробнее</summary>
+              <pre style="white-space:pre-wrap; font-family:monospace; font-size:0.9rem; margin-top:5px; color:#ccc">Старое: ${oldA.join(', ') || '—'}\nНовое:  ${newA.join(', ') || '—'}</pre>
+            </details>
+          `;
+          div.innerHTML = html;
+          resultArea.appendChild(div);
+        });
 
-          right.appendChild(summary);
-          row.appendChild(left); row.appendChild(right);
-          container.appendChild(row);
-
-          // details
-          const det = document.createElement('details');
-          const sum = document.createElement('summary'); sum.textContent = 'Подробнее';
-          det.appendChild(sum);
-          const pre = document.createElement('pre'); pre.style.margin='8px 0 0 0'; pre.style.whiteSpace='pre-wrap'; pre.style.fontFamily='monospace';
-          pre.textContent = 'Старое: ' + (oldArr.length?oldArr.join(', '):'—') + '\nНовое:  ' + (newArr.length?newArr.join(', '):'—') + '\n\nУбрано: ' + (diff.removed.length?diff.removed.join(', '):'—') + '\nДобавлено: ' + (diff.added.length?diff.added.join(', '):'—');
-          det.appendChild(pre);
-          container.appendChild(det);
+        if(!hasContent) {
+          resultArea.innerHTML = '<div class="center-align muted">Нет изменений или данных</div>';
         }
+        // Сохраняем для JSON
+        resultArea.dataset.json = JSON.stringify(summaryJson, null, 2);
+      });
 
-        // attach summary JSON for copy / download
-        container.dataset.summary = JSON.stringify(summaryJson, null, 2);
+      clearBtn.addEventListener('click', ()=>{
+        oldInput.value = ''; newInput.value = ''; resultArea.innerHTML = '';
+        localStorage.removeItem('svet_old');
+        localStorage.removeItem('svet_new');
+        M.textareaAutoResize(oldInput);
+        M.textareaAutoResize(newInput);
+      });
+
+      copyJsonBtn.addEventListener('click', ()=>{
+        const txt = resultArea.dataset.json || '{}';
+        navigator.clipboard.writeText(txt).then(()=> M.toast({html: 'JSON скопирован'}));
+      });
+
+
+      // --- ЛОГИКА ВИЗУАЛИЗАТОРА (MODAL) ---
+      function parseTimeMinutes(str) {
+        if(str === '24:00') return 1440;
+        const [h, m] = str.split(':').map(Number);
+        return h*60 + m;
       }
 
-      function escapeHtml(s){ return s.replace(/[&<>\"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
-
-      document.getElementById('compare').addEventListener('click', ()=>{
-        const oldText = document.getElementById('old').value;
-        const newText = document.getElementById('new').value;
-        const parsedOld = parseBlock(oldText);
-        const parsedNew = parseBlock(newText);
-        render({old: parsedOld, new: parsedNew});
-      });
-
-      document.getElementById('clear').addEventListener('click', ()=>{
-        document.getElementById('old').value = '';
-        document.getElementById('new').value = '';
-        document.getElementById('result').innerHTML = '';
-      });
-
-      document.getElementById('copyJson').addEventListener('click', ()=>{
-        const container = document.getElementById('result');
-        const txt = container.dataset.summary || '{}';
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(txt).then(()=>{
-            // Используем кастомное уведомление вместо alert
-            showTempAlert('JSON скопирован в буфер обмена');
-          }).catch(()=> showTempAlert('Не удалось скопировать', true));
-        } else {
-            // Fallback для сред, где clipboard API не доступен (хотя вряд ли)
-            try {
-              const dummy = document.createElement("textarea");
-              document.body.appendChild(dummy);
-              dummy.value = txt;
-              dummy.select();
-              document.execCommand("copy");
-              document.body.removeChild(dummy);
-              showTempAlert('JSON скопирован в буфер обмена');
-            } catch (err) {
-              showTempAlert('Не удалось скопировать', true);
-            }
-        }
-      });
-      
-      // (НОВАЯ) Функция для кастомного Alert
-      function showTempAlert(message, isError = false) {
-          let alertBox = document.querySelector('.temp-alert');
-          if (!alertBox) {
-              alertBox = document.createElement('div');
-              alertBox.className = 'temp-alert';
-              document.body.appendChild(alertBox);
-              const style = document.createElement('style');
-              style.textContent = `
-                  .temp-alert {
-                      position: fixed;
-                      top: 20px;
-                      left: 50%;
-                      transform: translateX(-50%);
-                      padding: 12px 20px;
-                      border-radius: 8px;
-                      background: var(--accent);
-                      color: #04201a;
-                      font-weight: 600;
-                      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                      opacity: 0;
-                      transition: opacity 0.3s, top 0.3s;
-                      z-index: 9999;
-                  }
-                  .temp-alert.show {
-                      opacity: 1;
-                      top: 30px;
-                  }
-                  .temp-alert.error {
-                      background: var(--danger);
-                      color: #fff;
-                  }
-              `;
-              document.head.appendChild(style);
-          }
-          
-          alertBox.textContent = message;
-          alertBox.classList.toggle('error', isError);
-          alertBox.classList.add('show');
-          
-          setTimeout(() => {
-              alertBox.classList.remove('show');
-          }, 2000);
-      }
-
-
-      document.getElementById('download').addEventListener('click', ()=>{
-        const container = document.getElementById('result');
-        const txt = container.dataset.summary || '{}';
-        const blob = new Blob([txt], {type:'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'compare_summary.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      });
-      
-      // Инициализируем пустой результат при загрузке
-      document.getElementById('result').innerHTML = '<div class="empty">Нет данных — вставь старый и новый графики и нажми «Сравнить»</div>';
-
-    })();
-
-
-    // ===================================
-    // ЛОГИКА ВИЗУАЛИЗАТОРА (ОБНОВЛЕНО)
-    // ===================================
-    (function() {
-      // Получаем ссылки на DOM-элементы
-      const generateBtn = document.getElementById('generateVizBtn');
-      const downloadBtn = document.getElementById('downloadVizBtn');
-      const textInput = document.getElementById('dataInputViz');
-      const chartContainer = document.getElementById('chartContainerViz');
-      const errorContainer = document.getElementById('viz-error-message');
-      const summaryContainer = document.getElementById('viz-summary'); // (НОВЫЙ)
-
-      // Иконка "нет питания"
-      const iconOff = `
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 1rem; height: 1rem;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
-        </svg>`;
-        
-      function escapeHtml(s){ return s.replace(/[&<>\"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
-
-      /**
-       * (НОВЫЙ) Сливает пересекающиеся интервалы.
-       * @param {Array<Object>} ranges - Массив объектов {start, end}
-       * @returns {Array<Object>} - Массив слитых интервалов
-       */
       function mergeIntervals(ranges) {
-        if (ranges.length === 0) return [];
-        // Сортируем по времени начала
-        const sortedRanges = [...ranges].sort((a, b) => a.start - b.start);
-        
-        const merged = [];
-        // Берем копию, чтобы не мутировать оригинальные данные
-        let current = { ...sortedRanges[0] }; 
-
-        for (let i = 1; i < sortedRanges.length; i++) {
-          const next = sortedRanges[i];
-          if (next.start <= current.end) {
-            // Интервалы пересекаются или касаются, сливаем
-            current.end = Math.max(current.end, next.end);
+        if(!ranges.length) return [];
+        ranges.sort((a,b) => a.start - b.start);
+        const result = [];
+        let curr = {...ranges[0]};
+        for(let i=1; i<ranges.length; i++){
+          if(ranges[i].start <= curr.end) {
+            curr.end = Math.max(curr.end, ranges[i].end);
           } else {
-            // Интервалы не пересекаются, пушим текущий и начинаем новый
-            merged.push(current);
-            current = { ...next }; // Берем копию
+            result.push(curr);
+            curr = {...ranges[i]};
           }
         }
-        // Пушим последний обработанный интервал
-        merged.push(current);
-        return merged;
+        result.push(curr);
+        return result;
       }
 
-      /**
-       * (НОВЫЙ) Считает общую длительность по слитым интервалам.
-       * @param {Array<Object>} mergedRanges - Массив слитых интервалов
-       * @returns {number} - Общая длительность в минутах
-       */
-      function calculateTotalDuration(mergedRanges) {
-        return mergedRanges.reduce((acc, range) => acc + (range.end - range.start), 0);
+      function fmtDuration(mins) {
+        const h = Math.floor(mins/60);
+        const m = mins % 60;
+        let s = '';
+        if(h > 0) s += h + 'ч ';
+        if(m > 0) s += m + 'мин';
+        return s.trim() || '0мин';
       }
 
-      /**
-       * (НОВЫЙ) Форматирует минуты в "Ч ч М мин".
-       */
-      function formatMinutes(minutes) {
-        if (minutes === 0) return '0 мин';
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-        let parts = [];
-        if (h > 0) parts.push(`${h} ч`);
-        if (m > 0) parts.push(`${m} мин`);
-        return parts.join(' ');
-      }
-
-      /**
-       * Парсит время из строки "ЧЧ:ММ" в минуты.
-       */
-      function parseTime(timeStr) {
-        // "24:00" равно 1440 минутам (конец дня)
-        if (timeStr === '24:00') {
-          return 24 * 60;
-        }
-        const [hours, minutes] = timeStr.split(':').map(Number);
-        if (isNaN(hours) || isNaN(minutes)) {
-            throw new Error(`Неверный формат времени: ${timeStr}`);
-        }
-        return (hours * 60) + minutes;
-      }
-
-      /**
-       * Парсит весь текст из textarea в структурированные данные.
-       * (ОБНОВЛЕНО) Сразу считает статистику.
-       */
-      function parseInput(text) {
+      function generateChart() {
+        const text = vizInput.value;
         const lines = text.trim().split('\n');
         const data = [];
-        const lineRegex = /^([\d\.]+):\s*(.*)$/;
-        const rangeRegex = /(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/g; // Поддерживаем разные тире и 1-2 цифры в часах
+        
+        // Regex для строки вида "Группа: время"
+        const lineRe = /^([^:]+):\s*(.*)$/; 
+        const timeRe = /(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/g;
 
-        for (const line of lines) {
-          if (line.trim() === '') continue;
-          const lineMatch = line.match(lineRegex);
-          if (!lineMatch) {
-            console.warn(`Неверный формат строки, пропускаем: ${line}`);
-            continue;
-          }
-
-          const group = lineMatch[1];
-          const timesString = lineMatch[2];
+        for(const line of lines){
+          const match = line.trim().match(lineRe);
+          if(!match) continue;
           
-          const entry = { 
-            group: group, 
-            ranges: [], 
-            mergedRanges: [], 
-            totalMinutes: 0 
-          };
-
-          let rangeMatch;
-          while ((rangeMatch = rangeRegex.exec(timesString)) !== null) {
-            const startStr = pad(rangeMatch[1]);
-            const endStr = pad(rangeMatch[2]);
-            entry.ranges.push({
-              start: parseTime(startStr),
-              end: parseTime(endStr)
+          const groupName = match[1].trim();
+          const timeStr = match[2];
+          const ranges = [];
+          
+          let tm;
+          while((tm = timeRe.exec(timeStr)) !== null){
+            ranges.push({
+              start: parseTimeMinutes(pad(tm[1])),
+              end: parseTimeMinutes(pad(tm[2]))
             });
           }
           
-          // (НОВОЕ) Сразу считаем статистику для этой группы
-          entry.mergedRanges = mergeIntervals(entry.ranges);
-          entry.totalMinutes = calculateTotalDuration(entry.mergedRanges);
+          const merged = mergeIntervals(ranges);
+          const totalMins = merged.reduce((acc, r) => acc + (r.end - r.start), 0);
           
-          data.push(entry);
+          data.push({
+            group: groupName,
+            ranges: merged,
+            totalMinsNumeric: totalMins,
+            totalStr: fmtDuration(totalMins)
+          });
         }
-        return data;
-      }
-      
-      /**
-       * (НОВЫЙ) Дополняет время до ЧЧ:ММ (например, 1:30 -> 01:30)
-       */
-      function pad(t){
-        const [h,m] = t.split(':');
-        const hh = h.padStart(2,'0');
-        return hh + ':' + m;
+
+        if(!data.length) {
+          M.toast({html: 'Нет данных для отображения', classes: 'red'});
+          return;
+        }
+
+        renderGrid(data);
+        chartModalInstance.open();
       }
 
-      /**
-       * (НОВЫЙ / КЛЮЧЕВОЕ ИЗМЕНЕНИЕ)
-       * Проверяет, пересекается ли 30-минутный слот с какими-либо интервалами отключений.
-       * @param {number} cellStart - Начало слота (в минутах)
-       * @param {number} cellEnd - Конец слота (в минутах)
-       * @param {Array<Object>} ranges - Массив интервалов {start, end}
-       */
-      function isIntervalOff(cellStart, cellEnd, ranges) {
-        for (const range of ranges) {
-          // Стандартная проверка на пересечение двух интервалов:
-          // (StartA < EndB) и (EndA > StartB)
-          if (cellStart < range.end && cellEnd > range.start) {
-            return true; // Найдено пересечение
-          }
-        }
-        return false;
-      }
-      
-      /**
-       * Показывает сообщение об ошибке
-       */
-      function showVizError(message) {
-        errorContainer.textContent = message;
-        errorContainer.classList.remove('hidden');
-      }
-      
-      /**
-       * Скрывает сообщение об ошибке
-       */
-      function hideVizError() {
-        errorContainer.classList.add('hidden');
-      }
-
-      /**
-       * Главная функция отрисовки графика (CSS Grid).
-       * (ОБНОВЛЕНО) Использует новую логику isIntervalOff
-       */
-      function drawChart(data) {
-        // 1. Очищаем контейнер
-        chartContainer.innerHTML = '';
+      function renderGrid(data) {
+        chartGrid.innerHTML = '';
         
-        // 2. Создаем сам grid-контейнер
-        const grid = document.createElement('div');
-        grid.id = 'chart-grid';
+        // 1. Заголовок (пустой угол)
+        const corner = document.createElement('div');
+        corner.className = 'grid-cell corner-cell';
+        corner.style.borderRight = 'none'; 
+        chartGrid.appendChild(corner);
 
-        // 3. Создаем ячейки заголовка (часы)
-        
-        // 3.1. Пустой угловой элемент
-        const cornerCell = document.createElement('div');
-        cornerCell.className = 'grid-cell corner-cell';
-        grid.appendChild(cornerCell);
-
-        // 3.2. Ячейки с часами (00...23)
-        for (let hour = 0; hour < 24; hour++) {
-          const headerCell = document.createElement('div');
-          headerCell.className = 'grid-cell header-cell';
-          headerCell.textContent = hour.toString().padStart(2, '0') + ':00';
-          grid.appendChild(headerCell);
+        // 2. Часы (00..23)
+        for(let h=0; h<24; h++){
+          const cell = document.createElement('div');
+          cell.className = 'grid-cell header-cell';
+          cell.textContent = h.toString().padStart(2,'0') + ':00';
+          chartGrid.appendChild(cell);
         }
 
-        // 4. Создаем строки данных
-        data.forEach((entry, index) => {
-          // 4.1. Ячейка-метка (1.1, 1.2...)
-          const labelCell = document.createElement('div');
-          labelCell.className = 'grid-cell label-cell';
-          labelCell.textContent = entry.group;
-          grid.appendChild(labelCell);
+        // 3. Данные
+        data.forEach(item => {
+          // Лейбл группы + общее время
+          const label = document.createElement('div');
+          label.className = 'grid-cell label-cell';
+          label.innerHTML = `
+            <span>${escapeHtml(item.group)}</span>
+            <span class="total-time">(${item.totalStr})</span>
+          `;
+          chartGrid.appendChild(label);
 
-          // 4.2. Ячейки данных (48 штук по 30 минут)
-          for (let i = 0; i < 48; i++) {
-            const dataCell = document.createElement('div');
+          // 48 ячеек по 30 минут
+          for(let i=0; i<48; i++){
+            const start = i*30;
+            const end = (i+1)*30;
             
-            // (ОБНОВЛЕНО) Проверяем, пересекает ли наш 30-минутный слот (cell)
-            // какой-либо из слитых интервалов отключения (mergedRanges).
-            const cellStart = i * 30;
-            const cellEnd = (i + 1) * 30;
-            // Используем entry.mergedRanges для более быстрой проверки
-            const isOff = isIntervalOff(cellStart, cellEnd, entry.mergedRanges); 
-
-            dataCell.className = `grid-cell data-cell ${isOff ? 'off' : 'on'}`;
-            if (isOff) {
-              dataCell.innerHTML = iconOff;
+            // Проверка пересечения
+            const isOff = item.ranges.some(r => start < r.end && end > r.start);
+            
+            const cell = document.createElement('div');
+            cell.className = `grid-cell data-cell ${isOff ? 'off' : ''}`;
+            if(isOff) {
+              cell.innerHTML = `<i class="material-icons" style="font-size:14px">flash_off</i>`;
             }
-            grid.appendChild(dataCell);
+            chartGrid.appendChild(cell);
           }
         });
+
+        // 4. СТРОКА ИТОГО ВНИЗУ (НОВОЕ)
+        // Считаем сумму всех отключений по всем группам
+        const grandTotalMins = data.reduce((acc, item) => acc + item.totalMinsNumeric, 0);
         
-        // 5. Добавляем готовую сетку в контейнер
-        chartContainer.appendChild(grid);
+        const footerRow = document.createElement('div');
+        footerRow.className = 'grid-footer';
+        footerRow.innerHTML = `Всего времени отсутствия света (сумма по группам): <strong>${fmtDuration(grandTotalMins)}</strong>`;
+        chartGrid.appendChild(footerRow);
       }
 
-      /**
-       * Запускает генерацию графика.
-       * (ОБНОВЛЕНО) Показывает статистику.
-       */
-      function generate() {
-        hideVizError();
-        summaryContainer.classList.add('hidden'); // Скрываем старую статистику
+      function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+      // --- СКАЧИВАНИЕ ---
+      downloadPngBtn.addEventListener('click', function() {
+        const el = document.getElementById('chart-grid');
         
-        try {
-          const data = parseInput(textInput.value);
-          
-          if (data.length === 0) {
-            chartContainer.innerHTML = '<p class="empty">Не найдено данных для графика. Проверьте формат ввода.</p>';
-            downloadBtn.disabled = true;
-            return;
-          }
-          
-          drawChart(data);
-          
-          // (НОВОЕ) Показываем статистику
-          let grandTotalMinutes = 0;
-          let summaryHtml = '<strong>Общее время отсутствия:</strong><ul>';
-          for (const entry of data) {
-            grandTotalMinutes += entry.totalMinutes;
-            summaryHtml += `<li>${escapeHtml(entry.group)}: <strong>${formatMinutes(entry.totalMinutes)}</strong></li>`;
-          }
-          summaryHtml += '</ul>';
-          summaryHtml += `<p class="grand-total">Всего (уникально по группам): <strong>${formatMinutes(grandTotalMinutes)}</strong></p>`;
-          
-          summaryContainer.innerHTML = summaryHtml;
-          summaryContainer.classList.remove('hidden');
+        const originalText = this.innerHTML;
+        this.innerHTML = 'Генерация...';
+        this.disabled = true;
 
-          // Показываем кнопку скачивания
-          downloadBtn.disabled = false;
-          
-        } catch (error) {
-          console.error("Ошибка при генерации графика:", error);
-          showVizError(`Произошла ошибка: ${error.message}`);
-          downloadBtn.disabled = true;
-          summaryContainer.classList.add('hidden');
-        }
-      }
-
-      /**
-       * Запускает скачивание графика в PNG, используя html2canvas.
-       */
-      function download() {
-        const gridElement = document.getElementById('chart-grid');
-        if (!gridElement) return;
-
-        downloadBtn.disabled = true;
-        downloadBtn.textContent = 'Генерация...';
-
-        html2canvas(gridElement, {
-          backgroundColor: '#0b1220', // Фон карточки
-          useCORS: true,
-          scale: 2 // Увеличиваем масштаб для лучшего качества
+        html2canvas(el, {
+          backgroundColor: '#0f1724',
+          scale: 2 
         }).then(canvas => {
-          const dataUrl = canvas.toDataURL('image/png');
           const link = document.createElement('a');
-          link.href = dataUrl;
-          link.download = 'schedule-chart.png';
-          document.body.appendChild(link);
+          link.download = 'svet-chart.png';
+          link.href = canvas.toDataURL();
           link.click();
-          document.body.removeChild(link);
         }).catch(err => {
-          console.error("Ошибка при скачивании PNG:", err);
-          showVizError("Не удалось скачать изображение.");
+          console.error(err);
+          M.toast({html: 'Ошибка сохранения', classes: 'red'});
         }).finally(() => {
-          downloadBtn.disabled = false;
-          downloadBtn.textContent = 'Скачать PNG';
+          this.innerHTML = originalText;
+          this.disabled = false;
         });
-      }
+      });
 
-      // --- НАЗНАЧЕНИЕ СОБЫТИЙ ---
-      generateBtn.addEventListener('click', generate);
-      downloadBtn.addEventListener('click', download);
-
-      // --- ПЕРВЫЙ ЗАПУСК ---
-      // Сразу генерируем график при загрузке страницы с данными из примера
-      generate();
-
-    })();
-
+      generateVizBtn.addEventListener('click', generateChart);
+    });
   </script>
 </body>
 </html>
-
