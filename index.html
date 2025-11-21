@@ -75,6 +75,15 @@
       color: var(--accent);
     }
 
+    /* Checkboxes */
+    [type="checkbox"] + span:not(.lever) {
+      color: var(--text-main);
+    }
+    [type="checkbox"]:checked + span:not(.lever):before {
+      border-right: 2px solid var(--accent);
+      border-bottom: 2px solid var(--accent);
+    }
+
     /* Tabs */
     .tabs {
       background-color: transparent;
@@ -215,6 +224,22 @@
       grid-column: span 2; /* 1 hour = 2 slots */
     }
 
+    /* Corner Cell (Date) */
+    .corner-cell {
+      color: var(--accent);
+      font-family: 'Inter', sans-serif;
+      border-right: none;
+      padding: 0 10px;
+      justify-content: center; 
+      background-color: rgba(110,231,183,0.05);
+    }
+    .date-display {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-shadow: 0 0 10px rgba(110, 231, 183, 0.3);
+    }
+
     /* Label Cells (Groups) */
     .label-cell {
       background-color: rgba(110,231,183,0.05);
@@ -260,6 +285,24 @@
       font-size: 1.1em;
     }
 
+    /* Move Button Styling */
+    .move-btn-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px 0;
+    }
+    .btn-move {
+      border: 1px solid var(--border);
+      background: transparent;
+      box-shadow: none;
+      color: var(--accent);
+    }
+    .btn-move:hover {
+      background: rgba(110, 231, 183, 0.1);
+      box-shadow: 0 0 10px rgba(110, 231, 183, 0.2);
+    }
+
     /* Utilities */
     .hidden { display: none !important; }
     .mt-2 { margin-top: 1rem; }
@@ -297,12 +340,22 @@
     <div id="comparator" class="col s12">
       <div class="card">
         <div class="card-content">
-          <div class="row">
-            <div class="input-field col s12 m6">
+          <div class="row" style="display: flex; flex-wrap: wrap; align-items: center;">
+            <!-- Old Input -->
+            <div class="input-field col s12 m5">
               <textarea id="old" class="materialize-textarea" placeholder="1.1: 00:00-04:00"></textarea>
               <label for="old">Старый график</label>
             </div>
-            <div class="input-field col s12 m6">
+
+            <!-- Move Button (Interactive compare_arrows) -->
+            <div class="col s12 m2 move-btn-container">
+              <button id="moveDataBtn" class="btn-floating btn-large btn-move waves-effect" title="Перенести Новый в Старый">
+                <i class="material-icons">compare_arrows</i>
+              </button>
+            </div>
+
+            <!-- New Input -->
+            <div class="input-field col s12 m5">
               <textarea id="new" class="materialize-textarea" placeholder="1.1: 00:00-03:00"></textarea>
               <label for="new">Новый график</label>
             </div>
@@ -319,7 +372,7 @@
 
           <div class="row" style="margin-top: 20px;">
             <div class="col s12">
-              <button id="compareBtn" class="btn waves-effect waves-light">Сравнить</button>
+              <button id="compareBtn" class="btn waves-effect waves-light">Сравнить и Перенести</button>
               <button id="clearBtn" class="btn-flat waves-effect">Очистить</button>
               
               <div class="right hide-on-small-only">
@@ -332,7 +385,7 @@
           <div id="resultArea" class="mt-2">
             <!-- Dynamic content here -->
             <div class="center-align" style="padding: 30px; opacity: 0.5">
-              <i class="material-icons" style="font-size: 3rem;">compare_arrows</i>
+              <i class="material-icons" style="font-size: 3rem;">analytics</i>
               <p>Вставьте данные и нажмите "Сравнить"</p>
             </div>
           </div>
@@ -351,6 +404,15 @@
           <div class="input-field">
             <textarea id="vizInput" class="materialize-textarea" style="min-height: 150px;" placeholder="1.1: 00:00 – 04:00, 09:00 – 13:00&#10;1.2: 02:00 – 06:00"></textarea>
             <label for="vizInput">Данные графика</label>
+          </div>
+
+          <div class="row" style="margin-bottom: 0;">
+             <div class="col s12 mb-2">
+               <label>
+                <input type="checkbox" id="nextDayCheck" />
+                <span>График на завтра (следующий день)</span>
+              </label>
+             </div>
           </div>
 
           <div class="row">
@@ -401,6 +463,7 @@
       
       // --- ЭЛЕМЕНТЫ ---
       const compareBtn = document.getElementById('compareBtn');
+      const moveDataBtn = document.getElementById('moveDataBtn'); // Кнопка стрелок
       const clearBtn = document.getElementById('clearBtn');
       const copyJsonBtn = document.getElementById('copyJsonBtn');
       const oldInput = document.getElementById('old');
@@ -410,6 +473,7 @@
 
       const generateVizBtn = document.getElementById('generateVizBtn');
       const vizInput = document.getElementById('vizInput');
+      const nextDayCheck = document.getElementById('nextDayCheck'); // Галочка "на завтра"
       const chartModalEl = document.getElementById('chartModal');
       const chartGrid = document.getElementById('chart-grid');
       const downloadPngBtn = document.getElementById('downloadPngBtn');
@@ -441,6 +505,26 @@
 
 
       // --- ЛОГИКА КОМПАРАТОРА ---
+      
+      // Функция переноса Новое -> Старое (по кнопке стрелок)
+      moveDataBtn.addEventListener('click', () => {
+        if (!newInput.value.trim()) {
+           M.toast({html: 'Поле "Новый график" пустое', classes: 'rounded'});
+           return;
+        }
+        oldInput.value = newInput.value;
+        newInput.value = '';
+        
+        // Обновляем хранилище и UI
+        localStorage.setItem('svet_old', oldInput.value);
+        localStorage.setItem('svet_new', '');
+        M.updateTextFields();
+        M.textareaAutoResize(oldInput);
+        M.textareaAutoResize(newInput);
+        
+        M.toast({html: 'Данные перенесены в Старый график'});
+      });
+
       function parseBlock(text){
         const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
         const data = {};
@@ -497,6 +581,17 @@
       compareBtn.addEventListener('click', () => {
         const dOld = parseBlock(oldInput.value);
         const dNew = parseBlock(newInput.value);
+        
+        // 1. АВТОМАТИЧЕСКИЙ ПЕРЕНОС В ВИЗУАЛИЗАТОР
+        if (newInput.value.trim()) {
+            vizInput.value = newInput.value;
+            localStorage.setItem('svet_viz', vizInput.value);
+            M.textareaAutoResize(vizInput);
+            M.updateTextFields();
+            M.toast({html: 'Данные скопированы в Визуализатор'});
+        }
+
+        // 2. ЛОГИКА СРАВНЕНИЯ
         const keys = Array.from(new Set([...Object.keys(dOld), ...Object.keys(dNew)])).sort();
         
         resultArea.innerHTML = '';
@@ -592,6 +687,18 @@
         if(m > 0) s += m + 'мин';
         return s.trim() || '0мин';
       }
+      
+      // Функция форматирования даты
+      function getChartDate() {
+        const now = new Date();
+        if (nextDayCheck.checked) {
+          // Добавляем 1 день
+          now.setDate(now.getDate() + 1);
+        }
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0'); // Месяцы с 0
+        return `${day}.${month}`;
+      }
 
       function generateChart() {
         const text = vizInput.value;
@@ -634,17 +741,18 @@
           return;
         }
 
-        renderGrid(data);
+        const dateStr = getChartDate();
+        renderGrid(data, dateStr);
         chartModalInstance.open();
       }
 
-      function renderGrid(data) {
+      function renderGrid(data, dateStr) {
         chartGrid.innerHTML = '';
         
-        // 1. Заголовок (пустой угол)
+        // 1. Заголовок (с датой)
         const corner = document.createElement('div');
         corner.className = 'grid-cell corner-cell';
-        corner.style.borderRight = 'none'; 
+        corner.innerHTML = `<span class="date-display">${dateStr}</span>`; 
         chartGrid.appendChild(corner);
 
         // 2. Часы (00..23)
@@ -683,7 +791,7 @@
           }
         });
 
-        // 4. СТРОКА ИТОГО ВНИЗУ (НОВОЕ)
+        // 4. СТРОКА ИТОГО ВНИЗУ
         // Считаем сумму всех отключений по всем группам
         const grandTotalMins = data.reduce((acc, item) => acc + item.totalMinsNumeric, 0);
         
@@ -708,7 +816,7 @@
           scale: 2 
         }).then(canvas => {
           const link = document.createElement('a');
-          link.download = 'svet-chart.png';
+          link.download = `svet-chart-${getChartDate()}.png`; // Добавляем дату в имя файла
           link.href = canvas.toDataURL();
           link.click();
         }).catch(err => {
